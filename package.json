@@ -6,11 +6,15 @@
   "scripts": {
     "dev": "node server",
     "build": "npm run build:client && npm run build:server",
-    "build:client": "vite build --outDir dist/client",
+    "build:client": "vite build --outDir dist/client --ssrManifest",
     "build:server": "vite build --ssr src/entry-server.tsx --outDir dist/server",
     "preview": "cross-env NODE_ENV=production node server"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@tanstack/react-virtual": "^3.13.6",
+    "clsx": "^2.1.1",
     "compression": "^1.8.0",
     "express": "^5.0.1",
     "react": "^19.0.0",
@@ -22,8 +26,11 @@
     "@types/node": "^22.13.4",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
+    "@types/react-window": "^1.8.8",
     "@vitejs/plugin-react-swc": "^3.8.0",
     "cross-env": "^7.0.3",
+    "react-virtualized-auto-sizer": "^1.0.26",
+    "react-window": "^1.8.11",
     "typescript": "~5.7.3",
     "vite": "^6.1.1"
   }

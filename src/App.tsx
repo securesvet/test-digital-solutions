@@ -1,34 +1,34 @@
-import './App.css'
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
+import VirtualList from "./VirtualList/VirtualList";
+import "./App.css";
+import "./hooks/useWindowDimensions";
+import MacWindow from "./MacWindow/MacWindow";
+import arrow from "./assets/arrow.svg";
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://reactjs.org" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <main className="content hint">
+      <MacWindow>
+        <Input />
+        <VirtualList />
+      </MacWindow>
+      <Hint />
+    </main>
+  );
 }
 
-export default App
+function Input() {
+  return <input type="text" className="search-input" placeholder={"Search..."}/>;
+}
+
+function Hint() {
+  return (
+    <>
+      <h4>
+        Да, можно двигать окно мышкой
+      </h4>
+      <img src={arrow} className="arrow" />
+    </>
+  );
+}
+
+export default App;

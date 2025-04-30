@@ -1,0 +1,54 @@
+.list__container {
+  overflow: auto;
+  border-radius: 10px;
+}
+
+.virtual-list {
+  height: 500px;
+  overflow: auto;
+  border-radius: 10px;
+  position: relative;
+}
+
+.virtual-list__spacer {
+  position: relative;
+  width: 100%;
+}
+
+.virtual-list__row {
+  display: flex;
+  align-items: center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
+.virtual-list__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding-left: 10px;
+  background-color: red;
+}
+
+.virtual-list__item__checkbox {
+  margin-right: 10px;
+}
+
+.virtual-list__item--even {
+  background-color: #333;
+}
+
+.virtual-list__item--odd {
+  background-color: #3a3a3a;
+}
+
+.virtual-list__item--overlay {
+  background-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.virtual-list__checkbox {
+  margin-right: 10px;
+}

@@ -62,8 +62,7 @@ app.use('*all', async (req, res) => {
     vite?.ssrFixStacktrace(e)
     console.log(e.stack)
     res.status(500).end(e.stack)
-  }
-})
+  } })
 
 // Start http server
 app.listen(port, () => {
