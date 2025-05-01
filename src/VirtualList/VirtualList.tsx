@@ -17,7 +17,12 @@ import {
 import "./VirtualList.css";
 import clsx from "clsx";
 import { SearchContext, SortContext } from "../context";
-import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+    arrayMove,
+    SortableContext,
+    useSortable,
+    verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 const AMOUNT_OF_ITEMS = 1_000_000;
@@ -29,11 +34,22 @@ const OVERSCAN = 10;
 const CHECKED_KEY = "virtualList_checkedItems";
 const SCROLL_KEY = "virtualList_scrollTop";
 
+type ItemType = {
+    id: number;
+    text: string;
+};
+
+// TODO: Drag and drop selection fix.
+
+// TODO: Implement search
+
+// TODO: Fix other occurring bugs
+
 function VirtualList() {
     const parentRef = useRef<HTMLDivElement | null>(null);
     const { searchValue } = useContext(SearchContext);
     const { sortOrder } = useContext(SortContext);
-    const [items, setItems] = useState<{ id: number; text: string }[]>([]);
+    const [items, setItems] = useState<ItemType[]>([]);
     const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
     useEffect(() => {
         const savedChecked = localStorage.getItem(CHECKED_KEY);
@@ -100,8 +116,12 @@ function VirtualList() {
 
     const getItems = useCallback(
         (startIndex: number, endIndex: number) => {
+            const length = endIndex - startIndex + 1;
+            if (length <= 0) return [];
+
             if (searchValue) {
-                const result = [];
+                console.log(searchValue);
+                const result: ItemType[] = [];
                 let count = 0;
                 for (let i = Number(searchValue); i < AMOUNT_OF_ITEMS; i++) {
                     const isArrayFull =
@@ -111,11 +131,15 @@ function VirtualList() {
                         count <= endIndex + OVERSCAN;
                     if (isArrayFull || !isInsideVisibleRange) {
                         break;
+                    } else {
+                        count++;
+                        if (i.toString().includes(searchValue.toLowerCase())) {
+                            result.push({ id: i, text: String(i) });
+                        }
                     }
                 }
+                return result;
             }
-            const length = endIndex - startIndex + 1;
-            if (length <= 0) return [];
 
             if (sortOrder === "asc") {
                 return Array.from({ length }, (_, i) => ({
@@ -170,7 +194,7 @@ function VirtualList() {
     useEffect(() => {
         const range = rowVirtualizer.calculateRange();
         handleUpdateLoadItems(range);
-    }, [sortOrder, getItems, rowVirtualizer.calculateRange]);
+    }, [searchValue, sortOrder, getItems, rowVirtualizer.calculateRange]);
 
     return (
         <DndContext
