@@ -1,5 +1,6 @@
 .list__container {
-  overflow: auto;
+  overflow-y: scroll;
+  overflow-x: hidden;
   border-radius: 10px;
 }
 
@@ -24,6 +25,11 @@
   align-items: center;
   padding-left: 10px;
   background-color: red;
+  gap: 5px;
+}
+
+.grab {
+  cursor: grab;
 }
 
 .virtual-list__spacer .virtual-list__row:last-child {

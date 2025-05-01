@@ -24,6 +24,7 @@ import {
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { GoGrabber } from "react-icons/go";
 
 const AMOUNT_OF_ITEMS = 1_000_000;
 const WINDOW_HEIGHT = 400;
@@ -43,7 +44,7 @@ type ItemType = {
 
 // TODO: Implement search
 
-// TODO: Fix other occurring bugs
+// TODO: Fix other occurring bugs because of ID and virtualization
 
 function VirtualList() {
     const parentRef = useRef<HTMLDivElement | null>(null);
@@ -289,6 +290,7 @@ function SortableRowItem({
             style={style}
             className={clsx("virtual-list__item", className)}
         >
+            <GoGrabber className="grab"/>
             <input
                 className="virtual-list__item__checkbox"
                 type="checkbox"
