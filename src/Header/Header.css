@@ -1,0 +1,13 @@
+.header {
+  display: flex;
+  gap: 10px;
+  margin: 10px 0px;
+  align-items: center;
+}
+
+.filter__button, .sort__button {
+  width: 30px;
+  height: 30px;
+  border-radius: 5px;
+  cursor: pointer;
+}

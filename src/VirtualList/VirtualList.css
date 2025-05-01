@@ -3,16 +3,10 @@
   border-radius: 10px;
 }
 
-.virtual-list {
-  height: 500px;
-  overflow: auto;
-  border-radius: 10px;
-  position: relative;
-}
-
 .virtual-list__spacer {
   position: relative;
   width: 100%;
+  border-radius: inherit;
 }
 
 .virtual-list__row {
@@ -30,6 +24,10 @@
   align-items: center;
   padding-left: 10px;
   background-color: red;
+}
+
+.virtual-list__spacer .virtual-list__row:last-child {
+  border-radius: 10px;
 }
 
 .virtual-list__item__checkbox {

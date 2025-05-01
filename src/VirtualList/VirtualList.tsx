@@ -1,22 +1,32 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from "react";
 import { DndContext } from "@dnd-kit/core";
-import { SortableContext } from "@dnd-kit/sortable";
 import "./VirtualList.css";
 import clsx from "clsx";
+import { SearchContext, SortContext } from "../context";
 
 const AMOUNT_OF_ITEMS = 1_000_000;
 const WINDOW_HEIGHT = 400;
 const ITEM_HEIGHT = 20;
+const AMOUNT_OF_VISIBLE_ITEMS = Math.ceil(WINDOW_HEIGHT / ITEM_HEIGHT);
+const OVERSCAN = 10;
 
 const CHECKED_KEY = "virtualList_checkedItems";
 const SCROLL_KEY = "virtualList_scrollTop";
 
 function VirtualList() {
     const parentRef = useRef<HTMLDivElement | null>(null);
-
+    const { searchValue } = useContext(SearchContext);
+    const { sortOrder } = useContext(SortContext);
+    const [items, setItems] = useState<{ id: number; text: string }[]>([]);
     const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
-
     useEffect(() => {
         const savedChecked = localStorage.getItem(CHECKED_KEY);
         if (savedChecked) {
@@ -55,7 +65,7 @@ function VirtualList() {
         return () => el?.removeEventListener("scroll", handler);
     }, []);
 
-    const toggleCheckbox = useCallback((index: number) => {
+    const toggleCheckbox = (index: number) => {
         setCheckedItems((prev) => {
             const newSet = new Set(prev);
             if (newSet.has(index)) {
@@ -65,13 +75,111 @@ function VirtualList() {
             }
             return newSet;
         });
-    }, []);
+    };
+
+    const itemsCount = useMemo(() => {
+        if (!searchValue) {
+            return AMOUNT_OF_ITEMS;
+        }
+        let count = 0;
+        for (let i = Number(searchValue); i < AMOUNT_OF_ITEMS; i++) {
+            if (i.toString().includes(searchValue.toLowerCase())) {
+                count++;
+            }
+        }
+        return count;
+    }, [searchValue]);
+
+    const getItems = useCallback(
+        (startIndex: number, endIndex: number) => {
+            if (searchValue) {
+                const result = [];
+                let count = 0;
+                for (let i = Number(searchValue); i < AMOUNT_OF_ITEMS; i++) {
+                    const isArrayFull =
+                        result.length >= AMOUNT_OF_VISIBLE_ITEMS + OVERSCAN;
+                    const isInsideVisibleRange =
+                        count >= startIndex - OVERSCAN &&
+                        count <= endIndex + OVERSCAN;
+                    if (isArrayFull || !isInsideVisibleRange) {
+                        break;
+                    }
+                }
+            }
+            const length = endIndex - startIndex + 1;
+            if (length <= 0) return [];
+
+            if (sortOrder === "asc") {
+                return Array.from({ length }, (_, i) => ({
+                    id: startIndex + i,
+                    text: String(startIndex + i + 1),
+                }));
+            } else {
+                return Array.from({ length }, (_, i) => ({
+                    id: AMOUNT_OF_ITEMS - 1 - startIndex - i,
+                    text: String(AMOUNT_OF_ITEMS - startIndex - i),
+                }));
+            }
+        },
+        [sortOrder],
+    );
+
+    // const getFilteredItems = useCallback(
+    //     (startIndex: number, endIndex: number) => {
+    //         console.log("rerender filtered items", startIndex, endIndex);
+    //         if (!searchValue) {
+    //             return null;
+    //         }
+    //         let count = 0;
+    // const result = [];
+    // for (let i = Number(searchValue); i < AMOUNT_OF_ITEMS; i++) {
+    //     const isArrayFull =
+    //         result.length >= AMOUNT_OF_VISIBLE_ITEMS + OVERSCAN;
+    //     const isInsideVisibleRange = count >= startIndex - OVERSCAN &&
+    //         count <= endIndex + OVERSCAN;
+    //     if (isArrayFull || !isInsideVisibleRange) {
+    //         break;
+    //     }
+    //             console.log(count, isInsideVisibleRange);
+    //             console.log(
+    //                 "includes",
+    //                 i.toString().includes(searchValue.toLowerCase()),
+    //             );
+    //             if (
+    //                 i.toString().includes(searchValue.toLowerCase()) &&
+    //                 isInsideVisibleRange
+    //             ) {
+    //                 result[count++] = i.toString();
+    //             }
+    //         }
+    //         console.log(result);
+    //         return result;
+    //     },
+    //     [searchValue],
+    // );
 
     const rowVirtualizer = useVirtualizer({
-        count: AMOUNT_OF_ITEMS,
+        count: itemsCount,
         getScrollElement: () => parentRef.current,
         estimateSize: () => ITEM_HEIGHT,
+        onChange(instance) {
+            handleUpdateLoadItems(instance.range);
+        },
     });
+
+    const handleUpdateLoadItems = (
+        range: { startIndex: number; endIndex: number } | null,
+    ) => {
+        if (!range) return;
+        const { startIndex, endIndex } = range;
+        const updated = getItems(startIndex, endIndex);
+        setItems(updated);
+    };
+
+    useEffect(() => {
+        const range = rowVirtualizer.calculateRange();
+        handleUpdateLoadItems(range);
+    }, [sortOrder, getItems, rowVirtualizer.calculateRange]);
 
     return (
         <DndContext>
@@ -80,43 +188,39 @@ function VirtualList() {
                 className="list__container"
                 style={{
                     height: WINDOW_HEIGHT,
-                    overflow: "auto",
-                    borderRadius: "10px",
                 }}
             >
                 <div
+                    className="virtual-list__spacer"
                     style={{
                         height: rowVirtualizer.getTotalSize(),
-                        width: "100%",
-                        position: "relative",
                     }}
                 >
-                    <SortableContext items={["a"]}>
-                        {rowVirtualizer.getVirtualItems().map((virtualItem) => (
-                            <div
-                                key={virtualItem.key}
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    position: "absolute",
-                                    top: 0,
-                                    left: 0,
-                                    width: "100%",
-                                    height: virtualItem.size,
-                                    transform:
-                                        `translateY(${virtualItem.start}px)`,
-                                }}
-                            >
-                                <RowItem
-                                    index={virtualItem.index}
-                                    checked={checkedItems.has(
-                                        virtualItem.index,
-                                    )}
-                                    onToggle={toggleCheckbox}
-                                />
-                            </div>
-                        ))}
-                    </SortableContext>
+                    {rowVirtualizer.getVirtualItems().map((virtualItem, i) => (
+                        <div
+                            key={virtualItem.key}
+                            className="virtual-list__row"
+                            style={{
+                                height: virtualItem.size,
+                                transform: `translateY(${virtualItem.start}px)`,
+                            }}
+                        >
+                            <RowItem
+                                checked={checkedItems.has(
+                                    virtualItem.index,
+                                )}
+                                onToggle={toggleCheckbox}
+                                text={items[i]?.text || ""}
+                                className={clsx(
+                                    "virtual-list__item",
+                                    i % 2 === 0
+                                        ? "virtual-list__item--even"
+                                        : "virtual-list__item--odd",
+                                )}
+                                index={virtualItem.index}
+                            />
+                        </div>
+                    ))};
                 </div>
             </div>
         </DndContext>
@@ -124,17 +228,21 @@ function VirtualList() {
 }
 
 const RowItem = ({
-    index,
     checked,
     onToggle,
+    text,
+    className,
+    index,
 }: {
     index: number;
     checked: boolean;
     onToggle: (index: number) => void;
+    text?: string;
+    className?: string;
 }) => {
     return (
         <div
-            className={clsx("virtual-list__item", index % 2 === 0 ? "virtual-list__item--even" : "virtual-list__item--odd")}
+            className={clsx("virtual-list__item", className)}
             style={{
                 height: ITEM_HEIGHT,
             }}
@@ -145,7 +253,7 @@ const RowItem = ({
                 checked={checked}
                 onChange={() => onToggle(index)}
             />
-            Row {index}
+            <span>{text}</span>
         </div>
     );
 };
