@@ -7,10 +7,18 @@ import {
     useRef,
     useState,
 } from "react";
-import { DndContext } from "@dnd-kit/core";
+import {
+    closestCenter,
+    DndContext,
+    PointerSensor,
+    useSensor,
+    useSensors,
+} from "@dnd-kit/core";
 import "./VirtualList.css";
 import clsx from "clsx";
 import { SearchContext, SortContext } from "../context";
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const AMOUNT_OF_ITEMS = 1_000_000;
 const WINDOW_HEIGHT = 400;
@@ -124,39 +132,22 @@ function VirtualList() {
         [sortOrder],
     );
 
-    // const getFilteredItems = useCallback(
-    //     (startIndex: number, endIndex: number) => {
-    //         console.log("rerender filtered items", startIndex, endIndex);
-    //         if (!searchValue) {
-    //             return null;
-    //         }
-    //         let count = 0;
-    // const result = [];
-    // for (let i = Number(searchValue); i < AMOUNT_OF_ITEMS; i++) {
-    //     const isArrayFull =
-    //         result.length >= AMOUNT_OF_VISIBLE_ITEMS + OVERSCAN;
-    //     const isInsideVisibleRange = count >= startIndex - OVERSCAN &&
-    //         count <= endIndex + OVERSCAN;
-    //     if (isArrayFull || !isInsideVisibleRange) {
-    //         break;
-    //     }
-    //             console.log(count, isInsideVisibleRange);
-    //             console.log(
-    //                 "includes",
-    //                 i.toString().includes(searchValue.toLowerCase()),
-    //             );
-    //             if (
-    //                 i.toString().includes(searchValue.toLowerCase()) &&
-    //                 isInsideVisibleRange
-    //             ) {
-    //                 result[count++] = i.toString();
-    //             }
-    //         }
-    //         console.log(result);
-    //         return result;
-    //     },
-    //     [searchValue],
-    // );
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 5,
+            },
+        }),
+    );
+
+    const handleDragEnd = (event: any) => {
+        const { active, over } = event;
+        if (active.id !== over?.id) {
+            const oldIndex = items.findIndex((item) => item.id === active.id);
+            const newIndex = items.findIndex((item) => item.id === over?.id);
+            setItems((items) => arrayMove(items, oldIndex, newIndex));
+        }
+    };
 
     const rowVirtualizer = useVirtualizer({
         count: itemsCount,
@@ -182,70 +173,97 @@ function VirtualList() {
     }, [sortOrder, getItems, rowVirtualizer.calculateRange]);
 
     return (
-        <DndContext>
-            <div
-                ref={parentRef}
-                className="list__container"
-                style={{
-                    height: WINDOW_HEIGHT,
-                }}
+        <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+        >
+            <SortableContext
+                items={items.map((item) => item.id)}
+                strategy={verticalListSortingStrategy}
             >
                 <div
-                    className="virtual-list__spacer"
-                    style={{
-                        height: rowVirtualizer.getTotalSize(),
-                    }}
+                    ref={parentRef}
+                    className="list__container"
+                    style={{ height: WINDOW_HEIGHT }}
                 >
-                    {rowVirtualizer.getVirtualItems().map((virtualItem, i) => (
-                        <div
-                            key={virtualItem.key}
-                            className="virtual-list__row"
-                            style={{
-                                height: virtualItem.size,
-                                transform: `translateY(${virtualItem.start}px)`,
-                            }}
-                        >
-                            <RowItem
-                                checked={checkedItems.has(
-                                    virtualItem.index,
-                                )}
-                                onToggle={toggleCheckbox}
-                                text={items[i]?.text || ""}
-                                className={clsx(
-                                    "virtual-list__item",
-                                    i % 2 === 0
-                                        ? "virtual-list__item--even"
-                                        : "virtual-list__item--odd",
-                                )}
-                                index={virtualItem.index}
-                            />
-                        </div>
-                    ))};
+                    <div
+                        className="virtual-list__spacer"
+                        style={{ height: rowVirtualizer.getTotalSize() }}
+                    >
+                        {rowVirtualizer.getVirtualItems().map(
+                            (virtualItem, i) => {
+                                const item = items[i];
+                                if (!item) return null;
+                                return (
+                                    <div
+                                        key={item.id}
+                                        style={{
+                                            transform:
+                                                `translateY(${virtualItem.start}px)`,
+                                            position: "absolute",
+                                            width: "100%",
+                                        }}
+                                    >
+                                        <SortableRowItem
+                                            id={item.id}
+                                            index={virtualItem.index}
+                                            checked={checkedItems.has(item.id)}
+                                            onToggle={toggleCheckbox}
+                                            text={item.text}
+                                            className={clsx(
+                                                i % 2 === 0
+                                                    ? "virtual-list__item--even"
+                                                    : "virtual-list__item--odd",
+                                            )}
+                                        />
+                                    </div>
+                                );
+                            },
+                        )}
+                    </div>
                 </div>
-            </div>
+            </SortableContext>
         </DndContext>
     );
 }
 
-const RowItem = ({
+function SortableRowItem({
+    id,
     checked,
     onToggle,
     text,
     className,
     index,
 }: {
+    id: number;
     index: number;
     checked: boolean;
     onToggle: (index: number) => void;
     text?: string;
     className?: string;
-}) => {
+}) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+    } = useSortable({ id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        height: ITEM_HEIGHT,
+    };
+
     return (
         <div
+            ref={setNodeRef}
+            {...attributes}
+            {...listeners}
+            style={style}
             className={clsx("virtual-list__item", className)}
-            style={{
-                height: ITEM_HEIGHT,
-            }}
         >
             <input
                 className="virtual-list__item__checkbox"
@@ -256,6 +274,6 @@ const RowItem = ({
             <span>{text}</span>
         </div>
     );
-};
+}
 
 export default VirtualList;
