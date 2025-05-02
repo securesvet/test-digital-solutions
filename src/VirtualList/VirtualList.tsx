@@ -90,13 +90,13 @@ function VirtualList() {
         return () => el?.removeEventListener("scroll", handler);
     }, []);
 
-    const toggleCheckbox = (index: number) => {
+    const toggleCheckbox = (id: number) => {
         setCheckedItems((prev) => {
             const newSet = new Set(prev);
-            if (newSet.has(index)) {
-                newSet.delete(index);
+            if (newSet.has(id)) {
+                newSet.delete(id);
             } else {
-                newSet.add(index);
+                newSet.add(id);
             }
             return newSet;
         });
@@ -232,7 +232,6 @@ function VirtualList() {
                                     >
                                         <SortableRowItem
                                             id={item.id}
-                                            index={virtualItem.index}
                                             checked={checkedItems.has(item.id)}
                                             onToggle={toggleCheckbox}
                                             text={item.text}
@@ -259,10 +258,8 @@ function SortableRowItem({
     onToggle,
     text,
     className,
-    index,
 }: {
     id: number;
-    index: number;
     checked: boolean;
     onToggle: (index: number) => void;
     text?: string;
@@ -290,12 +287,12 @@ function SortableRowItem({
             style={style}
             className={clsx("virtual-list__item", className)}
         >
-            <GoGrabber className="grab"/>
+            <GoGrabber className="grab" />
             <input
                 className="virtual-list__item__checkbox"
                 type="checkbox"
                 checked={checked}
-                onChange={() => onToggle(index)}
+                onChange={() => onToggle(id)}
             />
             <span>{text}</span>
         </div>
