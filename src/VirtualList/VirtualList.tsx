@@ -16,9 +16,8 @@ import {
 } from "@dnd-kit/core";
 import "./VirtualList.css";
 import clsx from "clsx";
-import { SearchContext, SortContext } from "../context";
+import { SearchContext } from "../context";
 import {
-    arrayMove,
     SortableContext,
     useSortable,
     verticalListSortingStrategy,
@@ -71,6 +70,7 @@ function VirtualList() {
     const { searchValue } = useContext(SearchContext);
     const [items, setItems] = useState<ItemType[]>([]);
     const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
+    const activeItemId = 0;
 
     useEffect(() => {
         const savedChecked = localStorage.getItem(CHECKED_KEY);
@@ -164,13 +164,22 @@ function VirtualList() {
                 return result;
             }
 
-            return Array.from({ length }, (_, i) => {
-                return {
-                    id: startIndex + i,
-                    sortOrderId: getSortOrderID(startIndex + i),
-                    text: String(startIndex + i + 1),
-                };
-            });
+            return [
+                ...Array.from({ length }, (_, i) => {
+                    const id = startIndex + i;
+                    if (id == activeItemId) return null as unknown as ItemType;
+                    return {
+                        id,
+                        sortOrderId: getSortOrderID(startIndex + i),
+                        text: String(id + 1),
+                    };
+                }).filter(Boolean),
+                {
+                    id: activeItemId,
+                    sortOrderId: getSortOrderID(activeItemId),
+                    text: String(activeItemId + 1),
+                },
+            ];
         },
         [searchValue],
     );
@@ -322,11 +331,13 @@ function SortableRowItem({
         setNodeRef,
         transform,
         transition,
+        isDragging,
     } = useSortable({ id });
 
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
+        opacity: isDragging ? 0.5 : 1,
         height: ITEM_HEIGHT,
     };
 
