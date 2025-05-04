@@ -62,8 +62,13 @@ const getSortOrderID = (i: number) => {
 
 function VirtualList() {
     const parentRef = useRef<HTMLDivElement | null>(null);
+    const startIndex = Math.max(
+        0,
+        Math.floor(
+            (parentRef.current?.scrollTop || 0) / ITEM_HEIGHT,
+        ) - OVERSCAN,
+    );
     const { searchValue } = useContext(SearchContext);
-    const { sortOrder } = useContext(SortContext);
     const [items, setItems] = useState<ItemType[]>([]);
     const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
 
@@ -139,7 +144,7 @@ function VirtualList() {
                 let count = 0;
                 for (let i = Number(searchValue); i < AMOUNT_OF_ITEMS; i++) {
                     const isArrayFull =
-                        result.length >= AMOUNT_OF_VISIBLE_ITEMS + OVERSCAN;
+                        result.length >= AMOUNT_OF_VISIBLE_ITEMS;
                     const isInsideVisibleRange =
                         count >= startIndex - OVERSCAN &&
                         count <= endIndex + OVERSCAN;
@@ -188,32 +193,36 @@ function VirtualList() {
                     oldIndex: itemActive.id,
                     newIndex: itemOver.id,
                 });
-                setItems((items) => arrayMove(items, itemActive.id, itemOver.id));
             }
         }
     };
     const handleChangeItemsOrder = (
-        { oldIndex, newIndex }: {
-            oldIndex: number;
-            newIndex: number;
-        },
+        { oldIndex, newIndex }: { oldIndex: number; newIndex: number },
     ) => {
-        console.log(oldIndex, newIndex);
-        movedItemsID.add(oldIndex);
-        itemsSortOrderInfo.set(oldIndex, newIndex);
-        setItems((items) => {
-            items.map((item) =>
-                (item.id === oldIndex)
-                    ? item.sortOrderId = newIndex
-                    : (item.id === newIndex)
-                    ? item.sortOrderId = oldIndex
-                    : item
+        setItems((prevItems) => {
+            const sorted = [...prevItems].sort((a, b) =>
+                a.sortOrderId - b.sortOrderId
             );
-            return items;
+
+            const fromIndex = sorted.findIndex((item) => item.id === oldIndex);
+            const toIndex = sorted.findIndex((item) => item.id === newIndex);
+
+            if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
+                return prevItems;
+            }
+
+            const [movedItem] = sorted.splice(fromIndex, 1);
+
+            const insertAt = toIndex + (fromIndex < toIndex ? 0 : 1);
+            sorted.splice(insertAt, 0, movedItem);
+
+            sorted.forEach((item, idx) => {
+                item.sortOrderId = idx;
+                itemsSortOrderInfo.set(item.id, idx);
+            });
+
+            return sorted;
         });
-        console.log(movedItemsID);
-        console.log(itemsSortOrderInfo);
-        console.log(items);
     };
 
     const rowVirtualizer = useVirtualizer({
@@ -237,7 +246,7 @@ function VirtualList() {
     useEffect(() => {
         const range = rowVirtualizer.calculateRange();
         handleUpdateLoadItems(range);
-    }, [searchValue, sortOrder, getItems, rowVirtualizer.calculateRange]);
+    }, [searchValue, getItems, rowVirtualizer.calculateRange]);
 
     return (
         <DndContext
@@ -258,70 +267,41 @@ function VirtualList() {
                         className="virtual-list__spacer"
                         style={{ height: itemsCount * ITEM_HEIGHT }}
                     >
-                        {items.sort((a, b) => a.sortOrderId - b.sortOrderId).map(
-                            (item, index) => {
-                                return (
-                                    <div
-                                        key={item.id}
-                                        style={{
-                                            // transform:
-                                            //     `translateY(${500 - index}px)`,
-                                            // position: "absolute",
-                                            // width: "100%",
-                                        }}
-                                    >
-                                        <SortableRowItem
-                                            id={item.id}
-                                            checked={checkedItems.has(item.id)}
-                                            onToggle={toggleCheckbox}
-                                            text={JSON.stringify(item)}
-                                            className={clsx(
-                                                index % 2 === 0
-                                                    ? "virtual-list__item--even"
-                                                    : "virtual-list__item--odd",
-                                            )}
-                                        />
-                                    </div>
-                                );
-                            },
-                        )}
+                        {items.sort((a, b) => a.sortOrderId - b.sortOrderId)
+                            .map(
+                                (item, index) => {
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            style={{
+                                                transform: `translateY(${
+                                                    startIndex * ITEM_HEIGHT
+                                                }px)`,
+                                            }}
+                                        >
+                                            <SortableRowItem
+                                                id={item.id}
+                                                checked={checkedItems.has(
+                                                    item.id,
+                                                )}
+                                                onToggle={toggleCheckbox}
+                                                text={JSON.stringify(item.text)}
+                                                className={clsx(
+                                                    index % 2 === 0
+                                                        ? "virtual-list__item--even"
+                                                        : "virtual-list__item--odd",
+                                                )}
+                                            />
+                                        </div>
+                                    );
+                                },
+                            )}
                     </div>
                 </div>
             </SortableContext>
         </DndContext>
     );
 }
-
-
-                        // {rowVirtualizer.getVirtualItems().map(
-                        //     (virtualItem, i) => {
-                        //         const item = items[i];
-                        //         if (!item) return null;
-                        //         return (
-                        //             <div
-                        //                 key={item.id}
-                        //                 style={{
-                        //                     transform:
-                        //                         `translateY(${virtualItem.start}px)`,
-                        //                     position: "absolute",
-                        //                     width: "100%",
-                        //                 }}
-                        //             >
-                        //                 <SortableRowItem
-                        //                     id={item.id}
-                        //                     checked={checkedItems.has(item.id)}
-                        //                     onToggle={toggleCheckbox}
-                        //                     text={JSON.stringify(item)}
-                        //                     className={clsx(
-                        //                         i % 2 === 0
-                        //                             ? "virtual-list__item--even"
-                        //                             : "virtual-list__item--odd",
-                        //                     )}
-                        //                 />
-                        //             </div>
-                        //         );
-                        //     },
-                        // )}
 
 function SortableRowItem({
     id,
