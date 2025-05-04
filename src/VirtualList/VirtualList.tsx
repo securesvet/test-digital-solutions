@@ -29,18 +29,32 @@ import { GoGrabber } from "react-icons/go";
 const AMOUNT_OF_ITEMS = 1_000_000;
 const WINDOW_HEIGHT = 400;
 const ITEM_HEIGHT = 20;
-const AMOUNT_OF_VISIBLE_ITEMS = Math.ceil(WINDOW_HEIGHT / ITEM_HEIGHT);
 const OVERSCAN = 10;
+const AMOUNT_OF_VISIBLE_ITEMS = Math.ceil(WINDOW_HEIGHT / ITEM_HEIGHT) +
+    2 * OVERSCAN;
 
 const CHECKED_KEY = "virtualList_checkedItems";
 const SCROLL_KEY = "virtualList_scrollTop";
+const ORDER_KEY = "virtualList_orderKey";
 
 type ItemType = {
     id: number;
+    sortOrderId: number;
     text: string;
 };
 
-// TODO: Drag and drop selection fix.
+type ItemsOrderType = {
+    fromId: number;
+    toId: number;
+};
+
+const itemsSortOrderInfo = new Map<number, number>();
+
+const movedItemsID = new Set<number>();
+
+const getSortOrderID = (i: number) => {
+    return i;
+};
 
 // TODO: Implement search
 
@@ -52,6 +66,7 @@ function VirtualList() {
     const { sortOrder } = useContext(SortContext);
     const [items, setItems] = useState<ItemType[]>([]);
     const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
+
     useEffect(() => {
         const savedChecked = localStorage.getItem(CHECKED_KEY);
         if (savedChecked) {
@@ -103,9 +118,7 @@ function VirtualList() {
     };
 
     const itemsCount = useMemo(() => {
-        if (!searchValue) {
-            return AMOUNT_OF_ITEMS;
-        }
+        if (!searchValue) return AMOUNT_OF_ITEMS;
         let count = 0;
         for (let i = Number(searchValue); i < AMOUNT_OF_ITEMS; i++) {
             if (i.toString().includes(searchValue.toLowerCase())) {
@@ -117,7 +130,7 @@ function VirtualList() {
 
     const getItems = useCallback(
         (startIndex: number, endIndex: number) => {
-            const length = endIndex - startIndex + 1;
+            const length = endIndex - startIndex + OVERSCAN;
             if (length <= 0) return [];
 
             if (searchValue) {
@@ -135,26 +148,26 @@ function VirtualList() {
                     } else {
                         count++;
                         if (i.toString().includes(searchValue.toLowerCase())) {
-                            result.push({ id: i, text: String(i) });
+                            result.push({
+                                id: i,
+                                sortOrderId: getSortOrderID(i),
+                                text: String(i),
+                            });
                         }
                     }
                 }
                 return result;
             }
 
-            if (sortOrder === "asc") {
-                return Array.from({ length }, (_, i) => ({
+            return Array.from({ length }, (_, i) => {
+                return {
                     id: startIndex + i,
+                    sortOrderId: getSortOrderID(startIndex + i),
                     text: String(startIndex + i + 1),
-                }));
-            } else {
-                return Array.from({ length }, (_, i) => ({
-                    id: AMOUNT_OF_ITEMS - 1 - startIndex - i,
-                    text: String(AMOUNT_OF_ITEMS - startIndex - i),
-                }));
-            }
+                };
+            });
         },
-        [sortOrder],
+        [searchValue],
     );
 
     const sensors = useSensors(
@@ -168,10 +181,39 @@ function VirtualList() {
     const handleDragEnd = (event: any) => {
         const { active, over } = event;
         if (active.id !== over?.id) {
-            const oldIndex = items.findIndex((item) => item.id === active.id);
-            const newIndex = items.findIndex((item) => item.id === over?.id);
-            setItems((items) => arrayMove(items, oldIndex, newIndex));
+            const itemActive = items.find((item) => item.id === active.id);
+            const itemOver = items.find((item) => item.id === over.id);
+            if (itemActive && itemOver) {
+                handleChangeItemsOrder({
+                    oldIndex: itemActive.id,
+                    newIndex: itemOver.id,
+                });
+                setItems((items) => arrayMove(items, itemActive.id, itemOver.id));
+            }
         }
+    };
+    const handleChangeItemsOrder = (
+        { oldIndex, newIndex }: {
+            oldIndex: number;
+            newIndex: number;
+        },
+    ) => {
+        console.log(oldIndex, newIndex);
+        movedItemsID.add(oldIndex);
+        itemsSortOrderInfo.set(oldIndex, newIndex);
+        setItems((items) => {
+            items.map((item) =>
+                (item.id === oldIndex)
+                    ? item.sortOrderId = newIndex
+                    : (item.id === newIndex)
+                    ? item.sortOrderId = oldIndex
+                    : item
+            );
+            return items;
+        });
+        console.log(movedItemsID);
+        console.log(itemsSortOrderInfo);
+        console.log(items);
     };
 
     const rowVirtualizer = useVirtualizer({
@@ -214,29 +256,27 @@ function VirtualList() {
                 >
                     <div
                         className="virtual-list__spacer"
-                        style={{ height: rowVirtualizer.getTotalSize() }}
+                        style={{ height: itemsCount * ITEM_HEIGHT }}
                     >
-                        {rowVirtualizer.getVirtualItems().map(
-                            (virtualItem, i) => {
-                                const item = items[i];
-                                if (!item) return null;
+                        {items.sort((a, b) => a.sortOrderId - b.sortOrderId).map(
+                            (item, index) => {
                                 return (
                                     <div
                                         key={item.id}
                                         style={{
-                                            transform:
-                                                `translateY(${virtualItem.start}px)`,
-                                            position: "absolute",
-                                            width: "100%",
+                                            // transform:
+                                            //     `translateY(${500 - index}px)`,
+                                            // position: "absolute",
+                                            // width: "100%",
                                         }}
                                     >
                                         <SortableRowItem
                                             id={item.id}
                                             checked={checkedItems.has(item.id)}
                                             onToggle={toggleCheckbox}
-                                            text={item.text}
+                                            text={JSON.stringify(item)}
                                             className={clsx(
-                                                i % 2 === 0
+                                                index % 2 === 0
                                                     ? "virtual-list__item--even"
                                                     : "virtual-list__item--odd",
                                             )}
@@ -251,6 +291,37 @@ function VirtualList() {
         </DndContext>
     );
 }
+
+
+                        // {rowVirtualizer.getVirtualItems().map(
+                        //     (virtualItem, i) => {
+                        //         const item = items[i];
+                        //         if (!item) return null;
+                        //         return (
+                        //             <div
+                        //                 key={item.id}
+                        //                 style={{
+                        //                     transform:
+                        //                         `translateY(${virtualItem.start}px)`,
+                        //                     position: "absolute",
+                        //                     width: "100%",
+                        //                 }}
+                        //             >
+                        //                 <SortableRowItem
+                        //                     id={item.id}
+                        //                     checked={checkedItems.has(item.id)}
+                        //                     onToggle={toggleCheckbox}
+                        //                     text={JSON.stringify(item)}
+                        //                     className={clsx(
+                        //                         i % 2 === 0
+                        //                             ? "virtual-list__item--even"
+                        //                             : "virtual-list__item--odd",
+                        //                     )}
+                        //                 />
+                        //             </div>
+                        //         );
+                        //     },
+                        // )}
 
 function SortableRowItem({
     id,
