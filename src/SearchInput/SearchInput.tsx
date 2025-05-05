@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from "react";
-import { SearchContext } from "../context";
+import { SearchContext } from "../context/ListStateProvider/search";
 
 function Input() {
     const { searchValue, setSearchValue } = useContext(SearchContext);
