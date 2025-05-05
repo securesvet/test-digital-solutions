@@ -4,22 +4,19 @@ import "./hooks/useWindowDimensions";
 import MacWindow from "./MacWindow/MacWindow";
 import Header from "./Header/Header";
 import arrow from "./assets/arrow.svg";
-import { SearchContext, SortContext } from "./context";
+import { SearchContext } from "./context";
 import { useState } from "react";
 import Footer from "./Footer/Footer";
 
 function App() {
   const [searchValue, setSearchValue] = useState("");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   return (
     <>
       <main className="content hint">
         <MacWindow>
           <SearchContext.Provider value={{ searchValue, setSearchValue }}>
-            <SortContext.Provider value={{ sortOrder, setSortOrder }}>
-              <Header />
-              <VirtualList />
-            </SortContext.Provider>
+            <Header />
+            <VirtualList />
           </SearchContext.Provider>
         </MacWindow>
         <Hint />

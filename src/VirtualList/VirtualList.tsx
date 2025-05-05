@@ -52,6 +52,9 @@ const itemsSortOrderInfo = new Map<number, number>();
 const movedItemsID = new Set<number>();
 
 const getSortOrderID = (i: number) => {
+    if (itemsSortOrderInfo.has(i)) {
+        return itemsSortOrderInfo.get(i)!;
+    }
     return i;
 };
 
@@ -61,16 +64,19 @@ const getSortOrderID = (i: number) => {
 
 function VirtualList() {
     const parentRef = useRef<HTMLDivElement | null>(null);
-    const startIndex = Math.max(
-        0,
-        Math.floor(
-            (parentRef.current?.scrollTop || 0) / ITEM_HEIGHT,
-        ) - OVERSCAN,
-    );
     const { searchValue } = useContext(SearchContext);
     const [items, setItems] = useState<ItemType[]>([]);
     const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
-    const activeItemId = 0;
+    const [activeItemId, setActiveItemId] = useState(null);
+    const [scrollTop, setScrollTop] = useState(0);
+    const startIndex = Math.max(
+        0,
+        Math.floor(scrollTop / ITEM_HEIGHT) - OVERSCAN,
+    );
+    const endIndex = Math.min(
+        AMOUNT_OF_ITEMS - 1,
+        startIndex + AMOUNT_OF_VISIBLE_ITEMS,
+    );
 
     useEffect(() => {
         const savedChecked = localStorage.getItem(CHECKED_KEY);
@@ -135,62 +141,73 @@ function VirtualList() {
 
     const getItems = useCallback(
         (startIndex: number, endIndex: number) => {
+            console.log("rerenderItems");
             const length = endIndex - startIndex + OVERSCAN;
             if (length <= 0) return [];
 
-            if (searchValue) {
-                console.log(searchValue);
-                const result: ItemType[] = [];
-                let count = 0;
-                for (let i = Number(searchValue); i < AMOUNT_OF_ITEMS; i++) {
-                    const isArrayFull =
-                        result.length >= AMOUNT_OF_VISIBLE_ITEMS;
-                    const isInsideVisibleRange =
-                        count >= startIndex - OVERSCAN &&
-                        count <= endIndex + OVERSCAN;
-                    if (isArrayFull || !isInsideVisibleRange) {
-                        break;
-                    } else {
-                        count++;
-                        if (i.toString().includes(searchValue.toLowerCase())) {
-                            result.push({
-                                id: i,
-                                sortOrderId: getSortOrderID(i),
-                                text: String(i),
-                            });
-                        }
-                    }
-                }
-                return result;
-            }
-
-            return [
+            const result = [
                 ...Array.from({ length }, (_, i) => {
                     const id = startIndex + i;
                     if (id == activeItemId) return null as unknown as ItemType;
                     return {
                         id,
-                        sortOrderId: getSortOrderID(startIndex + i),
+                        sortOrderId: getSortOrderID(i),
                         text: String(id + 1),
                     };
                 }).filter(Boolean),
-                {
+            ];
+
+            return activeItemId
+                ? [...result, {
                     id: activeItemId,
                     sortOrderId: getSortOrderID(activeItemId),
                     text: String(activeItemId + 1),
-                },
-            ];
+                }]
+                : result;
+
+            // if (searchValue) {
+            //     console.log(searchValue);
+            //     const result: ItemType[] = [];
+            //     let count = 0;
+            //     for (let i = Number(searchValue); i < AMOUNT_OF_ITEMS; i++) {
+            //         const isArrayFull =
+            //             result.length >= AMOUNT_OF_VISIBLE_ITEMS;
+            //         const isInsideVisibleRange =
+            //             count >= startIndex - OVERSCAN &&
+            //             count <= endIndex + OVERSCAN;
+            //         if (isArrayFull || !isInsideVisibleRange) {
+            //             break;
+            //         } else {
+            //             count++;
+            //             if (i.toString().includes(searchValue.toLowerCase())) {
+            //                 result.push({
+            //                     id: i,
+            //                     sortOrderId: getSortOrderID(i + startIndex),
+            //                     text: String(i),
+            //                 });
+            //             }
+            //         }
+            //     }
+            //     return result;
+            // }
         },
-        [searchValue],
+        [searchValue, activeItemId],
     );
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 5,
+                distance: 1,
             },
         }),
     );
+
+    const handleDragStart = (event: any) => {
+        const { active } = event;
+        console.log(active.id);
+        setActiveItemId(active.id);
+        console.log(activeItemId);
+    };
 
     const handleDragEnd = (event: any) => {
         const { active, over } = event;
@@ -202,46 +219,37 @@ function VirtualList() {
                     oldIndex: itemActive.id,
                     newIndex: itemOver.id,
                 });
+                setActiveItemId(null);
             }
         }
     };
+
     const handleChangeItemsOrder = (
         { oldIndex, newIndex }: { oldIndex: number; newIndex: number },
     ) => {
-        setItems((prevItems) => {
-            const sorted = [...prevItems].sort((a, b) =>
-                a.sortOrderId - b.sortOrderId
-            );
+        const sorted = [...items].sort((a, b) => a.sortOrderId - b.sortOrderId);
 
-            const fromIndex = sorted.findIndex((item) => item.id === oldIndex);
-            const toIndex = sorted.findIndex((item) => item.id === newIndex);
+        const fromIndex = sorted.findIndex((item) => item.id === oldIndex);
+        const toIndex = sorted.findIndex((item) => item.id === newIndex);
 
-            if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
-                return prevItems;
-            }
+        if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
+            return items;
+        }
 
-            const [movedItem] = sorted.splice(fromIndex, 1);
+        const [movedItem] = sorted.splice(fromIndex, 1);
 
-            const insertAt = toIndex + (fromIndex < toIndex ? 0 : 1);
-            sorted.splice(insertAt, 0, movedItem);
+        const insertAt = toIndex + (fromIndex < toIndex ? 0 : 1);
+        sorted.splice(insertAt, 0, movedItem);
 
-            sorted.forEach((item, idx) => {
-                item.sortOrderId = idx;
+        sorted.forEach((item, idx) => {
+            item.sortOrderId = idx;
+            if (item.id !== idx) {
                 itemsSortOrderInfo.set(item.id, idx);
-            });
-
-            return sorted;
+            }
         });
-    };
 
-    const rowVirtualizer = useVirtualizer({
-        count: itemsCount,
-        getScrollElement: () => parentRef.current,
-        estimateSize: () => ITEM_HEIGHT,
-        onChange(instance) {
-            handleUpdateLoadItems(instance.range);
-        },
-    });
+        return sorted;
+    };
 
     const handleUpdateLoadItems = (
         range: { startIndex: number; endIndex: number } | null,
@@ -253,14 +261,23 @@ function VirtualList() {
     };
 
     useEffect(() => {
-        const range = rowVirtualizer.calculateRange();
-        handleUpdateLoadItems(range);
-    }, [searchValue, getItems, rowVirtualizer.calculateRange]);
+        handleUpdateLoadItems({
+            startIndex,
+            endIndex,
+        });
+    }, [searchValue, startIndex, getItems]);
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        const scrollTop = e.currentTarget.scrollTop;
+        setScrollTop(scrollTop);
+        localStorage.setItem(SCROLL_KEY, String(scrollTop));
+    };
 
     return (
         <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
             <SortableContext
@@ -271,6 +288,7 @@ function VirtualList() {
                     ref={parentRef}
                     className="list__container"
                     style={{ height: WINDOW_HEIGHT }}
+                    onScroll={handleScroll}
                 >
                     <div
                         className="virtual-list__spacer"
@@ -278,7 +296,7 @@ function VirtualList() {
                     >
                         {items.sort((a, b) => a.sortOrderId - b.sortOrderId)
                             .map(
-                                (item, index) => {
+                                (item) => {
                                     return (
                                         <div
                                             key={item.id}
@@ -294,9 +312,9 @@ function VirtualList() {
                                                     item.id,
                                                 )}
                                                 onToggle={toggleCheckbox}
-                                                text={JSON.stringify(item.text)}
+                                                text={item.text}
                                                 className={clsx(
-                                                    index % 2 === 0
+                                                    item.sortOrderId % 2 === 0
                                                         ? "virtual-list__item--even"
                                                         : "virtual-list__item--odd",
                                                 )}
@@ -324,6 +342,7 @@ function SortableRowItem({
     onToggle: (index: number) => void;
     text?: string;
     className?: string;
+    active?: boolean;
 }) {
     const {
         attributes,
@@ -337,8 +356,10 @@ function SortableRowItem({
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : 1,
+        opacity: isDragging ? 0.9 : 1,
+        border: isDragging ? "2px solid cyan" : "",
         height: ITEM_HEIGHT,
+        zIndex: isDragging ? 10001 : 1,
     };
 
     return (
