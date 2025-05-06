@@ -30,6 +30,10 @@ export const SortOrderProvider = (
     }
   }, []);
 
+  useEffect(() => {
+    persist(sortOrder);
+  }, [sortOrder]);
+
   const persist = (map: SortOrderMap) => {
     localStorage.setItem(
       SORT_ORDER_KEY,
@@ -45,8 +49,9 @@ export const SortOrderProvider = (
   const setSortOrderForItem = (id: number, order: number) => {
     setSortOrder((prev) => {
       const newMap = new Map(prev);
-      newMap.set(id, order);
-      persist(newMap);
+      if (id !== order) {
+        newMap.set(id, order);
+      }
       return newMap;
     });
   };

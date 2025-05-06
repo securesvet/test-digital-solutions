@@ -27,9 +27,8 @@ import { ScrollContext, SortOrderContext } from "../context/ListStateProvider";
 const AMOUNT_OF_ITEMS = 1_000_000;
 const WINDOW_HEIGHT = 400;
 const ITEM_HEIGHT = 20;
-const OVERSCAN = 10;
-const AMOUNT_OF_VISIBLE_ITEMS = Math.ceil(WINDOW_HEIGHT / ITEM_HEIGHT) +
-    2 * OVERSCAN;
+const OVERSCAN = 5;
+const AMOUNT_OF_VISIBLE_ITEMS = 20 + OVERSCAN;
 
 type ItemType = {
     id: number;
@@ -51,6 +50,7 @@ function VirtualList() {
 
     const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
         const newScrollTop = e.currentTarget.scrollTop;
+        console.log("handling scroll");
         setScrollTop(newScrollTop); // Updates state + localStorage
     };
 
@@ -60,7 +60,7 @@ function VirtualList() {
 
     const startIndex = Math.max(
         0,
-        Math.floor(scrollTop / ITEM_HEIGHT) - OVERSCAN,
+        Math.floor(scrollTop / ITEM_HEIGHT) - 1,
     );
     const endIndex = Math.min(
         AMOUNT_OF_ITEMS - 1,
@@ -198,7 +198,7 @@ function VirtualList() {
     };
 
     const handleUpdateLoadItems = (
-        range: { startIndex: number; endIndex: number } | null,
+        range: { startIndex: number; endIndex: number },
     ) => {
         if (!range) return;
         const { startIndex, endIndex } = range;
@@ -240,13 +240,14 @@ function VirtualList() {
                     >
                         {items.sort((a, b) => a.sortOrderId - b.sortOrderId)
                             .map(
-                                (item) => {
+                                (item, index) => {
                                     return (
                                         <div
                                             key={item.id}
                                             style={{
                                                 transform: `translateY(${
-                                                    startIndex * ITEM_HEIGHT
+                                                    startIndex *
+                                                    ITEM_HEIGHT
                                                 }px)`,
                                             }}
                                         >
@@ -254,7 +255,7 @@ function VirtualList() {
                                                 id={item.id}
                                                 text={item.text}
                                                 className={clsx(
-                                                    item.sortOrderId % 2 === 0
+                                                    index % 2 === 0
                                                         ? "virtual-list__item--even"
                                                         : "virtual-list__item--odd",
                                                 )}
